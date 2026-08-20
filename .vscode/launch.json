@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Sandbox",
+      "program": "${workspaceFolder}/dist/sandbox.js",
+      "runtimeArgs": ["--enable-source-maps"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "npm: build",
+      "console": "integratedTerminal",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Tests",
+      "program": "${workspaceFolder}/node_modules/.bin/node",
+      "args": ["--test", "dist/tests/**/*.test.js", "--runInBand"],
+      "runtimeArgs": ["--enable-source-maps"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "npm: build",
+      "console": "integratedTerminal",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    }
+  ]
+}

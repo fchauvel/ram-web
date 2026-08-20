@@ -1,0 +1,19 @@
+{
+  "name": "ram-simulator",
+  "version": "1.0.0",
+  "description": "Random Access Machine Simulator for educational purposes",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test \"dist/tests/**/*.test.js\"",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2"
+  },
+  "dependencies": {},
+  "keywords": ["ram", "simulator", "education", "algorithms"],
+  "author": "",
+  "license": "MIT"
+}

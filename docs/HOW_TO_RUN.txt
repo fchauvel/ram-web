@@ -1,0 +1,31 @@
+HOW TO RUN THE RAM SIMULATOR
+=============================
+
+1. Start the local web server:
+
+   ./serve.sh
+
+   OR
+
+   python3 -m http.server 8000
+
+2. Open in your browser:
+
+   http://localhost:8000
+
+
+WHY DO I NEED A SERVER?
+-----------------------
+
+The simulator uses ES6 modules, which browsers don't allow
+to load from file:// URLs for security reasons.
+
+A local web server is needed to serve the files via http://.
+
+
+MAKING CHANGES
+--------------
+
+1. Edit ram.ts or asm.ts
+2. Run: npx -p typescript tsc
+3. Refresh browser

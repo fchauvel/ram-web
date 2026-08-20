@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAM Simulator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Random Access Machine Simulator</h1>
+
+    <div class="container">
+        <!-- Assembly Code Editor -->
+        <div class="panel editor-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                <h2 style="padding: 0; background: none; border: none; margin: 0;">Assembly Code</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="formatCode" title="Format the current code">Format</button>
+                    <label for="exampleSelect" style="font-size: 13px; color: #6c757d;">Examples:</label>
+                    <select id="exampleSelect">
+                        <option value="">-- Select an example --</option>
+                        <option value="hello">Hello World</option>
+                        <option value="arithmetic">Basic Arithmetic</option>
+                        <option value="loop">Loop Example</option>
+                        <option value="input">Input/Output</option>
+                        <option value="factorial">Factorial</option>
+                        <option value="selfmodify">Self-Modifying Code</option>
+                    </select>
+                </div>
+            </div>
+            <div class="editor-container">
+                <div id="highlightedCode" class="highlight-layer"></div>
+                <textarea id="asmCode" class="edit-layer" spellcheck="false">; Simple Example
+; Try loading an example from the dropdown above!
+
+.data
+value  5
+result 0
+
+.code
+SET   3
+ADD   value
+STORE result
+PRINT result
+HALT</textarea>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="panel controls-panel">
+            <h2>Controls</h2>
+            <div style="padding: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button id="loadProgram">Load Program</button>
+                        <label style="font-size: 14px;">at address:</label>
+                        <input type="number" id="loadAddress" value="0" min="0" style="width: 60px;">
+                    </div>
+                    <div class="controls">
+                        <button id="startStop">Start</button>
+                        <button id="step">Step</button>
+                        <button id="reset">Reset</button>
+                    </div>
+                </div>
+
+                <div class="status" id="message" style="display: none; margin-top: 15px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Panel -->
+        <div class="panel metrics-panel">
+            <h2>Efficiency Metrics</h2>
+            <div style="padding: 15px;">
+                <div class="metrics-grid">
+                    <div class="metric-label">Time</div>
+                    <div class="metric-values">
+                        <span>Steps: <strong id="metricSteps">0</strong></span>
+                        <span>Cost: <strong id="metricCost">0</strong></span>
+                    </div>
+                    <div class="metric-label">Space</div>
+                    <div class="metric-values">
+                        <span>Cells: <strong id="metricCells">0</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CPU Panel -->
+        <div class="panel cpu-panel">
+            <h2>CPU Registers</h2>
+            <div style="padding: 15px;">
+                <div class="cpu-state">
+                    <label>ACC:</label>
+                    <input type="text" id="acc" readonly>
+                    <div style="background: #f8f9fa; padding: 5px 8px; border: 1px solid #dee2e6; border-radius: 4px; color: #6c757d; font-size: 12px; min-width: 50px; text-align: center;" id="accDecoded">0</div>
+
+                    <label>IP:</label>
+                    <input type="text" id="ip" readonly>
+                    <div style="background: #f8f9fa; padding: 5px 8px; border: 1px solid #dee2e6; border-radius: 4px; color: #6c757d; font-size: 12px; min-width: 50px; text-align: center;" id="ipDecoded">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IO Device Panel -->
+        <div class="panel io-panel">
+            <h2>I/O Device</h2>
+            <div style="padding: 15px;">
+                <div class="io-section">
+                    <div class="io-group">
+                        <label>Input:</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="ioInput" placeholder="Enter input data" style="flex: 1;">
+                            <button id="sendInput" style="padding: 5px 15px;">Send</button>
+                        </div>
+                    </div>
+                    <div class="io-group">
+                        <label>Output:</label>
+                        <div id="ioOutput" class="io-output"></div>
+                    </div>
+                    <button id="clearOutput" style="align-self: flex-start;">Clear Output</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory Panel -->
+        <div class="panel memory-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                <h2 style="padding: 0; background: none; border: none;">Memory</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="memPrev">← Prev</button>
+                    <span id="memRange" style="font-size: 13px; color: #6c757d;">Addresses 0-39</span>
+                    <button id="memNext">Next →</button>
+                </div>
+            </div>
+            <div style="padding: 15px;">
+                <div class="memory-container" id="memoryContainer">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { RAM } from './dist/src/ram.js';
+        import { ASM } from './dist/src/asm.js';
+        import { CostModel, PerformanceMeter } from './dist/src/cost.js';
+
+        // Custom IO implementation that connects to UI
+        class CustomIO {
+            constructor(inputElement, outputElement, sendBtn) {
+                this.inputElement = inputElement;
+                this.outputElement = outputElement;
+                this.sendBtn = sendBtn;
+                this.inputQueue = [];
+                this.waitingForInput = false;
+                
+                // Disable input initially
+                this.setInputEnabled(false);
+            }
+            
+            setInputEnabled(enabled) {
+                this.inputElement.disabled = !enabled;
+                this.sendBtn.disabled = !enabled;
+                if (!enabled) {
+                    this.clearHighlight();
+                }
+            }
+
+            read() {
+                // If there's already input queued, use it
+                if (this.inputQueue.length > 0) {
+                    const value = this.inputQueue.shift();
+                    this.setInputEnabled(false);
+                    const symbols = value.split('').map(c => new RAM.Symbol(c));
+                    return new RAM.Word(symbols);
+                }
+                
+                // Otherwise, enable and highlight input field, then pause machine
+                this.setInputEnabled(true);
+                this.inputElement.style.backgroundColor = '#ffffcc';
+                this.inputElement.style.border = '2px solid #ff9900';
+                this.inputElement.focus();
+                this.waitingForInput = true;
+                this.sendBtn.style.backgroundColor = '#4a90e2';
+                this.sendBtn.style.color = 'white';
+                
+                // Pause machine execution and set flag to retry this instruction
+                if (window.machineRunning) {
+                    window.machinePaused = true;
+                    window.needsRetry = true;
+                }
+                
+                // Throw error to abort this instruction - will retry after input
+                throw new Error('WAITING_FOR_INPUT');
+            }
+
+            write(word) {
+                const output = word.toString();
+                const currentOutput = this.outputElement.textContent;
+                this.outputElement.textContent = currentOutput + output + '\n';
+            }
+            
+            sendInput() {
+                if (this.waitingForInput) {
+                    this.inputQueue.push(this.inputElement.value || '0');
+                    this.inputElement.value = '';
+                    this.clearHighlight();
+                    this.setInputEnabled(false);
+                    this.waitingForInput = false;
+                    
+                    // Resume machine if it was paused
+                    if (window.machinePaused) {
+                        window.machinePaused = false;
+                        if (window.machineRunning) {
+                            window.continueExecution();
+                        }
+                    }
+                }
+            }
+            
+            clearHighlight() {
+                this.inputElement.style.backgroundColor = '';
+                this.inputElement.style.border = '';
+                this.sendBtn.style.backgroundColor = '';
+                this.sendBtn.style.color = '';
+            }
+        }
+
+        // Get IO UI elements and initialize RAM machine using factory method
+        const ioInputElement = document.getElementById('ioInput');
+        const ioOutputElement = document.getElementById('ioOutput');
+        const sendInputBtn = document.getElementById('sendInput');
+        const io = new CustomIO(ioInputElement, ioOutputElement, sendInputBtn);
+        const machine = RAM.Machine.create(io);
+        const meter = new PerformanceMeter(new CostModel());
+        machine.addListener(meter);
+        
+        // Machine state for pausing
+        window.machineRunning = false;
+        window.machinePaused = false;
+        window.needsRetry = false;
+        
+        // Wire up Send button and Enter key
+        sendInputBtn.addEventListener('click', () => {
+            io.sendInput();
+        });
+        
+        ioInputElement.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                io.sendInput();
+            }
+        });
+        
+        // Convenient aliases
+        const encoding = machine.numbers;
+        const memory = machine.memory;
+        const cpu = machine.cpu;
+
+        // UI References
+        const accInput = document.getElementById('acc');
+        const ipInput = document.getElementById('ip');
+        const accDecoded = document.getElementById('accDecoded');
+        const ipDecoded = document.getElementById('ipDecoded');
+        const messageDiv = document.getElementById('message');
+        const memoryContainer = document.getElementById('memoryContainer');
+        const memRangeSpan = document.getElementById('memRange');
+
+        const asmCodeTextarea = document.getElementById('asmCode');
+        const highlightedCode = document.getElementById('highlightedCode');
+        const exampleSelect = document.getElementById('exampleSelect');
+        const loadProgramBtn = document.getElementById('loadProgram');
+        const loadAddressInput = document.getElementById('loadAddress');
+        const startStopBtn = document.getElementById('startStop');
+        const formatBtn = document.getElementById('formatCode');
+
+        // Syntax highlighting function
+        function highlightSyntax(code) {
+            if (!code) return '';
+
+            // Escape HTML
+            code = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            // Apply syntax highlighting
+            code = code
+                // Comments (must be first to avoid highlighting inside comments)
+                .replace(/(;.*$)/gm, '<span class="hl-comment">$1</span>')
+                // Directives (.data, .code)
+                .replace(/^(\.data|\.code)\b/gm, '<span class="hl-directive">$1</span>')
+                // Labels (word followed by colon) - capture whitespace too
+                .replace(/^(\s*\w+:)/gm, '<span class="hl-label">$1</span>')
+                // Instructions (at start of line or after whitespace)
+                .replace(/\b(SET|ADD|SUBTRACT|SUB|LOAD|STORE|JUMPZ|JUMP|PRINT|READ|ASK|SHOW|PROMPT|INPUT|HALT)\b/g,
+                         '<span class="hl-instruction">$1</span>')
+                // Numbers
+                .replace(/\b(\d+)\b/g, '<span class="hl-number">$1</span>');
+
+            return code;
+        }
+
+        // Sync highlighting with textarea
+        function updateHighlighting() {
+            const code = asmCodeTextarea.value;
+            highlightedCode.innerHTML = highlightSyntax(code);
+        }
+
+        // Sync scroll position
+        function syncScroll() {
+            highlightedCode.scrollTop = asmCodeTextarea.scrollTop;
+            highlightedCode.scrollLeft = asmCodeTextarea.scrollLeft;
+        }
+
+        // Handle Tab key to insert tabs instead of changing focus
+        asmCodeTextarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+
+                const start = asmCodeTextarea.selectionStart;
+                const end = asmCodeTextarea.selectionEnd;
+                const value = asmCodeTextarea.value;
+
+                // Insert tab character (or use spaces if preferred)
+                const tabChar = '\t';  // Could use '    ' for 4 spaces instead
+
+                // Replace selected text with tab
+                asmCodeTextarea.value = value.substring(0, start) + tabChar + value.substring(end);
+
+                // Move cursor after the tab
+                asmCodeTextarea.selectionStart = asmCodeTextarea.selectionEnd = start + tabChar.length;
+
+                // Trigger highlighting update
+                updateHighlighting();
+            }
+        });
+
+        // Event listeners for syntax highlighting
+        asmCodeTextarea.addEventListener('input', updateHighlighting);
+        asmCodeTextarea.addEventListener('scroll', syncScroll);
+
+        // Format button
+        formatBtn.addEventListener('click', () => {
+            try {
+                asmCodeTextarea.value = ASM.formatSource(asmCodeTextarea.value);
+                updateHighlighting();
+                logMessage("Formatted code");
+            } catch (err) {
+                logMessage("Format failed: " + (err?.message ?? err));
+            }
+        });
+
+        // Initial highlighting
+        updateHighlighting();
+        const stepBtn = document.getElementById('step');
+        const resetBtn = document.getElementById('reset');
+        const memPrevBtn = document.getElementById('memPrev');
+        const memNextBtn = document.getElementById('memNext');
+
+        // Example program files
+        const exampleFiles = {
+            hello: 'examples/hello.asm',
+            arithmetic: 'examples/arithmetic.asm',
+            loop: 'examples/loop.asm',
+            input: 'examples/input.asm',
+            factorial: 'examples/factorial.asm'
+        };
+
+        // Load example from file
+        async function loadExample(exampleKey) {
+            try {
+                const filePath = exampleFiles[exampleKey];
+                if (!filePath) return;
+                
+                // Add cache-busting parameter to force reload
+                const cacheBuster = `?t=${Date.now()}`;
+                const response = await fetch(filePath + cacheBuster);
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${filePath}`);
+                }
+                
+                const code = await response.text();
+                asmCodeTextarea.value = code;
+                updateHighlighting();
+                logMessage(`Loaded example: ${exampleKey}`);
+            } catch (error) {
+                logMessage(`Error loading example: ${error.message}`);
+            }
+        }
+
+        // Memory view state
+        let memoryOffset = 0;
+        let previousOffset = -1; // Start at -1 so first render triggers rebuild
+        const CELLS_PER_COLUMN = 20;
+        const NUM_COLUMNS = 2;
+        const TOTAL_VISIBLE_CELLS = CELLS_PER_COLUMN * NUM_COLUMNS;
+
+        // Track previous values for change highlighting
+        let previousAcc = '';
+        let previousIp = '';
+        const previousMemory = new Map(); // addr -> value
+        const changedCells = new Set(); // Track cells that changed in current update
+
+        // Performance metrics come from the PerformanceMeter listener
+
+        // UI references for metrics
+        const metricStepsEl = document.getElementById('metricSteps');
+        const metricCostEl = document.getElementById('metricCost');
+        const metricCellsEl = document.getElementById('metricCells');
+
+        function updateMetrics() {
+            metricStepsEl.textContent = meter.steps;
+            metricCostEl.textContent = meter.clock;
+            metricCellsEl.textContent = meter.cellsTouched;
+        }
+
+        function resetMetrics() {
+            meter.onMachineStarted();
+            updateMetrics();
+        }
+
+        function resetChangeTracking() {
+            previousAcc = '';
+            previousIp = '';
+            previousMemory.clear();
+            changedCells.clear();
+        }
+
+        function updateUI() {
+            // Clear changed cells from previous update
+            changedCells.clear();
+
+            const currentAcc = cpu.acc.read().toString();
+            const currentIp = cpu.ip.read().toString();
+
+            // Highlight ACC if changed
+            if (currentAcc !== previousAcc && previousAcc !== '') {
+                accInput.classList.add('changed');
+                setTimeout(() => accInput.classList.remove('changed'), 600);
+            }
+            accInput.value = currentAcc;
+            // Update decoded ACC value
+            try {
+                const accNum = encoding.fromWord(cpu.acc.read());
+                accDecoded.textContent = accNum.toJsNumber();
+            } catch {
+                accDecoded.textContent = '-';
+            }
+            previousAcc = currentAcc;
+
+            // Highlight IP if changed
+            if (currentIp !== previousIp && previousIp !== '') {
+                ipInput.classList.add('changed');
+                setTimeout(() => ipInput.classList.remove('changed'), 600);
+            }
+            ipInput.value = currentIp;
+            // Update decoded IP value
+            try {
+                const ipNum = encoding.fromWord(cpu.ip.read());
+                ipDecoded.textContent = ipNum.toJsNumber();
+            } catch {
+                ipDecoded.textContent = '-';
+            }
+            previousIp = currentIp;
+
+            updateMetrics();
+
+            // Update memory range indicator
+            const startAddr = memoryOffset * CELLS_PER_COLUMN;
+            const endAddr = startAddr + TOTAL_VISIBLE_CELLS - 1;
+            memRangeSpan.textContent = `Addresses ${startAddr}-${endAddr}`;
+
+            // Update prev/next button states
+            memPrevBtn.disabled = memoryOffset === 0;
+
+            // First pass: detect all changes
+            for (let i = 0; i < 1000; i++) { // Check all memory cells, not just visible
+                const addr = new RAM.NaturalNumber(i);
+                const word = memory.read(addr);
+                const currentValue = word.toString();
+                const previousValue = previousMemory.get(i);
+                
+                if (previousValue !== undefined && currentValue !== previousValue) {
+                    changedCells.add(i);
+                }
+                previousMemory.set(i, currentValue);
+            }
+
+            // Check if offset changed - if so, force rebuild
+            const offsetChanged = memoryOffset !== previousOffset;
+            previousOffset = memoryOffset;
+            
+            // Update existing cells or create new ones
+            const existingCells = memoryContainer.querySelectorAll('.memory-cell');
+            
+            // If offset changed or no cells exist, do full rebuild
+            if (offsetChanged || existingCells.length === 0 || existingCells.length !== TOTAL_VISIBLE_CELLS) {
+                memoryContainer.innerHTML = '';
+                for (let col = 0; col < NUM_COLUMNS; col++) {
+                    const columnDiv = document.createElement('div');
+                    columnDiv.className = 'memory-column';
+
+                    for (let row = 0; row < CELLS_PER_COLUMN; row++) {
+                        const cellIndex = (memoryOffset * CELLS_PER_COLUMN) + (col * CELLS_PER_COLUMN) + row;
+                        const addr = new RAM.NaturalNumber(cellIndex);
+                        const word = memory.read(addr);
+                        const currentValue = word.toString();
+
+                        const cellDiv = document.createElement('div');
+                        cellDiv.className = 'memory-cell';
+
+                        const addrDiv = document.createElement('div');
+                        addrDiv.className = 'addr';
+                        addrDiv.textContent = cellIndex;
+
+                        const contentInput = document.createElement('input');
+                        contentInput.type = 'text';
+                        contentInput.value = currentValue;
+                        contentInput.dataset.addr = cellIndex;
+                        contentInput.addEventListener('change', (e) => {
+                            const addr = new RAM.NaturalNumber(parseInt(e.target.dataset.addr));
+                            const value = e.target.value;
+                            const symbols = value.split('').map(c => new RAM.Symbol(c));
+                            memory.write(addr, new RAM.Word(symbols));
+                            updateUI();
+                        });
+
+                        const decodedDiv = document.createElement('div');
+                        decodedDiv.className = 'decoded';
+                        try {
+                            const num = encoding.fromWord(word);
+                            decodedDiv.textContent = word.length > 0 ? num.toJsNumber() : '';
+                        } catch {
+                            decodedDiv.textContent = '-';
+                        }
+
+                        cellDiv.appendChild(addrDiv);
+                        cellDiv.appendChild(contentInput);
+                        cellDiv.appendChild(decodedDiv);
+                        columnDiv.appendChild(cellDiv);
+                    }
+                    memoryContainer.appendChild(columnDiv);
+                }
+            } else {
+                // Update existing cells in place
+                for (let col = 0; col < NUM_COLUMNS; col++) {
+                    for (let row = 0; row < CELLS_PER_COLUMN; row++) {
+                        const cellIndex = (memoryOffset * CELLS_PER_COLUMN) + (col * CELLS_PER_COLUMN) + row;
+                        const addr = new RAM.NaturalNumber(cellIndex);
+                        const word = memory.read(addr);
+                        const currentValue = word.toString();
+
+                        const cellSelector = `input[data-addr="${cellIndex}"]`;
+                        const existingInput = memoryContainer.querySelector(cellSelector);
+                        
+                        if (existingInput) {
+                            existingInput.value = currentValue;
+                            
+                            // Update decoded value
+                            const decodedDiv = existingInput.parentElement.querySelector('.decoded');
+                            try {
+                                const num = encoding.fromWord(word);
+                                decodedDiv.textContent = word.length > 0 ? num.toJsNumber() : '';
+                            } catch {
+                                decodedDiv.textContent = '-';
+                            }
+                            
+                            // Highlight if changed
+                            if (changedCells.has(cellIndex)) {
+                                existingInput.classList.remove('changed');
+                                void existingInput.offsetWidth; // Force reflow
+                                existingInput.classList.add('changed');
+                                setTimeout(() => existingInput.classList.remove('changed'), 600);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function logMessage(msg) {
+            if (msg) {
+                messageDiv.textContent = msg;
+                messageDiv.style.display = 'block';
+            } else {
+                messageDiv.style.display = 'none';
+            }
+        }
+
+        // Example selector
+        exampleSelect.addEventListener('change', async () => {
+            const selected = exampleSelect.value;
+            if (selected) {
+                await loadExample(selected);
+                exampleSelect.value = ''; // Reset dropdown
+            }
+        });
+
+        // Create assembler instance with standard instruction set
+        const assembler = new ASM.Assembler(RAM.InstructionSet.standard);
+
+        // Load Program button
+        loadProgramBtn.addEventListener('click', () => {
+            const code = asmCodeTextarea.value;
+            if (code.trim() === '') {
+                logMessage('Error: No assembly code to load');
+                return;
+            }
+
+            try {
+                // Reset machine state
+                machine.reset();
+                startStopBtn.textContent = 'Start';
+                ioOutputElement.textContent = '';
+                memoryOffset = 0;
+                resetMetrics();
+                resetChangeTracking();
+
+                // Set up memory segments
+                const dataSegment = new RAM.MemorySegment(RAM.NaturalNumber.ZERO, []);
+                const codeSegment = new RAM.MemorySegment(new RAM.NaturalNumber(20), []);
+                const assembly = new ASM.Assembly(codeSegment, dataSegment);
+
+                // Assemble the code
+                assembler.assemble(code, assembly, encoding);
+
+                // Load into RAM machine
+                assembly.loadInto(machine);
+                
+                // Enable control buttons
+                startStopBtn.disabled = false;
+                stepBtn.disabled = false;
+
+                updateUI();
+                logMessage(`Program assembled successfully! Code: ${assembly.code.size.toJsNumber()} words, Data: ${assembly.data.size.toJsNumber()} words`);
+            } catch (error) {
+                logMessage(`Assembly error: ${error.message}`);
+                console.error('Assembly error:', error);
+            }
+        });
+
+        // Execution loop function
+        window.continueExecution = function() {
+            if (!window.machineRunning) return;
+            
+            setTimeout(() => {
+                try {
+                    let steps = 0;
+                    const maxSteps = 1000;
+                    const maxStepsPerBatch = 10; // Process in small batches
+
+                    while (machine.isRunning && steps < maxStepsPerBatch && !window.machinePaused) {
+                        try {
+                            machine.step();
+                            steps++;
+                            window.needsRetry = false;
+                        } catch (e) {
+                            if (e.message === 'WAITING_FOR_INPUT') {
+                                // Expected - machine will pause
+                                break;
+                            }
+                            throw e; // Re-throw other errors
+                        }
+                        
+                        if (steps >= maxSteps) break;
+                    }
+                    
+                    updateUI();
+                    
+                    // Continue if still running and not paused
+                    if (machine.isRunning && !window.machinePaused && window.machineRunning) {
+                        window.continueExecution();
+                    } else if (!machine.isRunning) {
+                        // Machine halted
+                        window.machineRunning = false;
+                        startStopBtn.textContent = 'Start';
+                        stepBtn.disabled = false;
+                        io.setInputEnabled(false);
+                    logMessage(`Halted after ${meter.steps} steps`);
+                    } else if (window.machinePaused) {
+                        logMessage('Waiting for input...');
+                    }
+                } catch (e) {
+                    machine.stop();
+                    window.machineRunning = false;
+                    startStopBtn.textContent = 'Start';
+                    stepBtn.disabled = false;
+                    io.setInputEnabled(false);
+                    updateUI();
+                    logMessage('Error: ' + e.message);
+                }
+            }, 0);
+        };
+        
+        // Start/Stop toggle button
+        startStopBtn.addEventListener('click', () => {
+            if (window.machineRunning) {
+                // Stop
+                window.machineRunning = false;
+                window.machinePaused = false;
+                machine.stop();
+                startStopBtn.textContent = 'Start';
+                stepBtn.disabled = false;
+                updateUI();
+                logMessage('Execution stopped');
+            } else {
+                // Start
+                logMessage('Running program...');
+                startStopBtn.textContent = 'Stop';
+                stepBtn.disabled = true; // Disable Step when running
+                machine.start();
+                window.machineRunning = true;
+                window.machinePaused = false;
+                window.continueExecution();
+            }
+        });
+
+        // Step button
+        stepBtn.addEventListener('click', () => {
+            try {
+                machine.step();
+                updateUI();
+                
+                // If machine halted after step, show message
+                if (!machine.isRunning) {
+                    logMessage('Executed one instruction - HALTED');
+                } else {
+                    logMessage('Executed one instruction');
+                }
+            } catch (e) {
+                if (e.message === 'WAITING_FOR_INPUT') {
+                    logMessage('Waiting for input...');
+                } else {
+                    logMessage('Error: ' + e.message);
+                }
+            }
+        });
+
+        // Reset button
+        resetBtn.addEventListener('click', () => {
+            window.machineRunning = false;
+            window.machinePaused = false;
+            machine.stop();
+            startStopBtn.textContent = 'Start';
+            stepBtn.disabled = false;
+            cpu.acc.write(new RAM.Word([]));
+            cpu.ip.write(encoding.toWord(RAM.NaturalNumber.ZERO));
+            ioOutputElement.textContent = '';
+            ioInputElement.value = '';
+            io.setInputEnabled(false);
+            memoryOffset = 0;
+            resetMetrics();
+            resetChangeTracking();
+            updateUI();
+            logMessage('Machine reset');
+        });
+
+        // Clear output button
+        const clearOutputBtn = document.getElementById('clearOutput');
+        clearOutputBtn.addEventListener('click', () => {
+            ioOutputElement.textContent = '';
+            logMessage('Output cleared');
+        });
+
+        // Memory navigation
+        memPrevBtn.addEventListener('click', () => {
+            if (memoryOffset > 0) {
+                memoryOffset--;
+                updateUI();
+            }
+        });
+
+        memNextBtn.addEventListener('click', () => {
+            memoryOffset++;
+            updateUI();
+        });
+
+        // Subscribe to machine events for automatic UI updates
+        machine.subscribe('UI', {
+            handle: (event) => {
+                console.log('Event received:', event.type, 'from', event.source);
+
+                if (event.type === 'Memory Cell Updated') {
+                    // Automatically update UI when memory cells change
+                    updateUI();
+                } else if (event.type === 'MachineStarted') {
+                    startStopBtn.textContent = 'Stop';
+                } else if (event.type === 'MachineStopped') {
+                    startStopBtn.textContent = 'Start';
+                }
+            }
+        });
+
+        // Initial UI update
+        resetMetrics();
+        updateUI();
+        logMessage(''); // Start with no message
+    </script>
+</body>
+</html>
