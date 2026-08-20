@@ -9,7 +9,9 @@ import {
 } from "../ram.js";
 import {
   AstVisitor,
+  CodeSegment,
   DataDeclaration,
+  DataSegment,
   Identifier,
   Instruction,
   Label,
@@ -98,12 +100,24 @@ class VariableCollector extends AstVisitor {
     }
   }
 
+  override visitDataSegment(node: DataSegment): void {
+    for (const declaration of node.declarations) {
+      declaration.accept(this);
+    }
+  }
+
   override visitDataDeclaration(node: DataDeclaration): void {
     const name = node.identifier.name;
     this.#symbolTable.defineVariable(name, this.allocateDataAddress());
     // Reserve space for all initial values
     for (let i = 1; i < node.initialValues.length; i++) {
       this.allocateDataAddress();
+    }
+  }
+
+  override visitCodeSegment(node: CodeSegment): void {
+    for (const action of node.actions) {
+      action.accept(this);
     }
   }
 
@@ -156,8 +170,10 @@ class CodeGenerator extends AstVisitor {
     }
   }
 
-  override visitDataSegment(node: DataDeclaration): void {
-    // handled per declaration
+  override visitDataSegment(node: DataSegment): void {
+    for (const declaration of node.declarations) {
+      declaration.accept(this);
+    }
   }
 
   override visitDataDeclaration(node: DataDeclaration): void {
@@ -183,6 +199,7 @@ class CodeGenerator extends AstVisitor {
   }
 
   override visitInstruction(node: Instruction): void {
+    node.operand?.accept(this);
     const instruction = this.#instructionSet.withMnemonic(node.mnemonic.name);
     this.#assembly.code.push(this.#encoding.toWord(instruction.opCode));
 

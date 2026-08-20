@@ -179,7 +179,7 @@ export class Parser {
 
   #zeroOrOne<T>(rule: () => T): T | undefined {
     try {
-      return rule();
+      return this.#attempt(rule);
     } catch {
       return undefined;
     }
@@ -194,9 +194,9 @@ export class Parser {
     let ruleApply = true;
     while (ruleApply) {
       try {
-        const result = rule();
+        const result = this.#attempt(rule);
         production.push(result);
-        separator();
+        this.#attempt(separator);
       } catch {
         ruleApply = false;
       }
@@ -209,12 +209,12 @@ export class Parser {
     options: { separator?: () => S } = {}
   ): Array<T> {
     const { separator = () => undefined } = options;
-    const production = [rule()];
+    const production = [this.#attempt(rule)];
     let ruleApply = true;
     while (ruleApply) {
       try {
-        separator();
-        production.push(rule());
+        this.#attempt(separator);
+        production.push(this.#attempt(rule));
       } catch {
         ruleApply = false;
       }
@@ -226,7 +226,7 @@ export class Parser {
     const errors = new Array<Error>();
     for (const rule of rules) {
       try {
-        return rule();
+        return this.#attempt(rule);
       } catch (error) {
         errors.push(error as Error);
         continue;
@@ -235,6 +235,17 @@ export class Parser {
     throw new SyntaxError(
       "No rule matched: " + errors.map((e) => e.message).join("; ")
     );
+  }
+
+  // Restores the token position on failure, so a partially-consumed alternative never leaks into the next one.
+  #attempt<T>(rule: () => T): T {
+    const startingPosition = this.#position;
+    try {
+      return rule();
+    } catch (error) {
+      this.#position = startingPosition;
+      throw error;
+    }
   }
 
   token(expected: TokenKind): Token {
@@ -251,7 +262,7 @@ export class Parser {
     return token;
   }
   
-  get #nextToken(): Token | undefined {
+  get #peekAtNextToken(): Token | undefined {
     if (this.#position < this.tokens.length) {
       return this.tokens[this.#position];
     }
