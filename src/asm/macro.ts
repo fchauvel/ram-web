@@ -1,12 +1,15 @@
 import {
   Action,
   AstVisitor,
+  CodeSegment,
   Expression,
   Identifier,
   Instruction,
+  MacroCall,
   MacroDeclaration,
   ParameterReference,
   Program,
+  Section,
 } from "./ast.js";
 
 export class MacroTable {
@@ -86,6 +89,31 @@ function resolveOperand(
     throw new Error(`Macro parameter ${operand.parameterName} has no matching argument`);
   }
   return argument;
+}
+
+export function expandMacroCalls(program: Program): Program {
+  const macros = MacroTable.collectFrom(program);
+  const sections = program.sections.map((section) => expandSection(section, macros));
+  return new Program(sections, program.span);
+}
+
+function expandSection(section: Section, macros: MacroTable): Section {
+  if (!(section instanceof CodeSegment)) {
+    return section;
+  }
+  const actions = section.actions.flatMap((action) => expandCall(action, macros));
+  return new CodeSegment(actions, section.span);
+}
+
+function expandCall(action: Action, macros: MacroTable): Array<Action> {
+  if (!(action instanceof MacroCall)) {
+    return [action];
+  }
+  if (action.label != undefined) {
+    throw new Error("A label on a macro call is not supported yet");
+  }
+  const macro = macros.lookup(action.name.name);
+  return expand(macro, action.args);
 }
 
 class MacroCollector extends AstVisitor {

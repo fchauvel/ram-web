@@ -19,6 +19,7 @@ import {
   Program,
 } from "./ast.js";
 import { Lexer, Token, TokenKind } from "./lexer.js";
+import { expandMacroCalls } from "./macro.js";
 import { Parser } from "./parser.js";
 
 export class Assembly {
@@ -43,7 +44,7 @@ export class Assembler {
   constructor(readonly instructionSet: InstructionSet) {}
 
   assemble(source: string, assembly: Assembly, encoding: NumberEncoding): void {
-    const ast = this.#buildAst(source);
+    const ast = expandMacroCalls(this.#buildAst(source));
     ast.accept(
       new VariableCollector(
         assembly.symbols,
