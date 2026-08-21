@@ -5,6 +5,7 @@ import {
   Expression,
   Identifier,
   Instruction,
+  Label,
   MacroCall,
   MacroDeclaration,
   ParameterReference,
@@ -93,19 +94,37 @@ function resolveOperand(
 
 export function expandMacroCalls(program: Program): Program {
   const macros = MacroTable.collectFrom(program);
-  const sections = program.sections.map((section) => expandSection(section, macros));
+  const nextCallSiteId = makeCallSiteIdGenerator();
+  const sections = program.sections.map((section) =>
+    expandSection(section, macros, nextCallSiteId)
+  );
   return new Program(sections, program.span);
 }
 
-function expandSection(section: Section, macros: MacroTable): Section {
+function makeCallSiteIdGenerator(): () => number {
+  let nextId = 1;
+  return () => nextId++;
+}
+
+function expandSection(
+  section: Section,
+  macros: MacroTable,
+  nextCallSiteId: () => number
+): Section {
   if (!(section instanceof CodeSegment)) {
     return section;
   }
-  const actions = section.actions.flatMap((action) => expandCall(action, macros));
+  const actions = section.actions.flatMap((action) =>
+    expandCall(action, macros, nextCallSiteId)
+  );
   return new CodeSegment(actions, section.span);
 }
 
-function expandCall(action: Action, macros: MacroTable): Array<Action> {
+function expandCall(
+  action: Action,
+  macros: MacroTable,
+  nextCallSiteId: () => number
+): Array<Action> {
   if (!(action instanceof MacroCall)) {
     return [action];
   }
@@ -113,7 +132,60 @@ function expandCall(action: Action, macros: MacroTable): Array<Action> {
     throw new Error("A label on a macro call is not supported yet");
   }
   const macro = macros.lookup(action.name.name);
-  return expand(macro, action.args);
+  const instructions = expand(macro, action.args);
+  return makeLabelsHygienic(instructions, nextCallSiteId());
+}
+
+// Renames every label defined inside one macro expansion (and every
+// reference to it within that same expansion) so repeated calls to the
+// same macro never collide in the symbol table.
+function makeLabelsHygienic(
+  instructions: Array<Instruction>,
+  callSiteId: number
+): Array<Instruction> {
+  const suffix = `$${callSiteId}`;
+  const localLabels = collectLabelNames(instructions);
+  return instructions.map((instruction) =>
+    renameLocalLabels(instruction, localLabels, suffix)
+  );
+}
+
+function collectLabelNames(instructions: Array<Instruction>): Set<string> {
+  const names = new Set<string>();
+  for (const instruction of instructions) {
+    if (instruction.label != undefined) {
+      names.add(instruction.label.name);
+    }
+  }
+  return names;
+}
+
+function renameLocalLabels(
+  instruction: Instruction,
+  localLabels: Set<string>,
+  suffix: string
+): Instruction {
+  const label = renameLabel(instruction.label, suffix);
+  const operand = renameOperandIfLocalLabel(instruction.operand, localLabels, suffix);
+  return new Instruction(instruction.mnemonic, operand, label, instruction.span);
+}
+
+function renameLabel(label: Label | undefined, suffix: string): Label | undefined {
+  if (label == undefined) {
+    return undefined;
+  }
+  return new Label(label.name + suffix, label.span);
+}
+
+function renameOperandIfLocalLabel(
+  operand: Expression | undefined,
+  localLabels: Set<string>,
+  suffix: string
+): Expression | undefined {
+  if (operand == undefined || !(operand instanceof Identifier) || !localLabels.has(operand.name)) {
+    return operand;
+  }
+  return new Identifier(operand.name + suffix, operand.span);
 }
 
 class MacroCollector extends AstVisitor {
