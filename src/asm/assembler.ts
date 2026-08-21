@@ -65,8 +65,13 @@ export class Assembler {
 
   #buildAst(source: string): Program {
     const lexer = new Lexer(source);
-    const parser = new Parser(new Array<Token>(...lexer.tokenize()));
+    const tokens = new Array<Token>(...lexer.tokenize());
+    const parser = new Parser(this.#dropComments(tokens));
     return parser.parse();
+  }
+
+  #dropComments(tokens: Array<Token>): Array<Token> {
+    return tokens.filter((token) => !token.kind.equals(TokenKind.Comment));
   }
 }
 

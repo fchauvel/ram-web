@@ -29,6 +29,33 @@ describe("Assembler end-to-end", () => {
     });
   });
 
+  test("program with comments", () => {
+    const source = `
+      ; A comment before any section
+      .data
+        val3  3 ; inline comment after a declaration
+      .code
+        ; a comment on its own line
+        SET 5
+        ADD val3
+        STORE 10
+        HALT
+    `;
+
+    driver.loadAndRun(source);
+
+    driver.verify({
+      running: false,
+      acc: 8,
+      ip: 27, // HALT is at 26, IP advances to 27
+      memory: [
+        { address: 0, value: 3 }, // val3
+        { address: 10, value: 8 }, // result
+      ],
+      output: [],
+    });
+  });
+
   test("program with variables", () => {
     const source = `
       .data
