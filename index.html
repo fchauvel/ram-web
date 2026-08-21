@@ -225,6 +225,28 @@ HALT</textarea>
                 this.sendBtn.style.backgroundColor = '';
                 this.sendBtn.style.color = '';
             }
+
+            reset() {
+                this.inputQueue = [];
+                this.waitingForInput = false;
+                this.setInputEnabled(false);
+            }
+        }
+
+        // Forwards machine events to the UI; unhandled events fall back to
+        // RAM.DefaultListener's no-ops.
+        class UIListener extends RAM.DefaultListener {
+            onMemoryUpdated() {
+                updateUI();
+            }
+
+            onMachineStarted() {
+                startStopBtn.textContent = 'Stop';
+            }
+
+            onMachineStopped() {
+                startStopBtn.textContent = 'Start';
+            }
         }
 
         // Get IO UI elements and initialize RAM machine using factory method
@@ -252,10 +274,8 @@ HALT</textarea>
             }
         });
         
-        // Convenient aliases
+        // Convenient alias
         const encoding = machine.numbers;
-        const memory = machine.memory;
-        const cpu = machine.cpu;
 
         // UI References
         const accInput = document.getElementById('acc');
@@ -431,8 +451,8 @@ HALT</textarea>
             // Clear changed cells from previous update
             changedCells.clear();
 
-            const currentAcc = cpu.acc.read().toString();
-            const currentIp = cpu.ip.read().toString();
+            const currentAcc = machine.readWordFromAcc().toString();
+            const currentIp = encoding.toWord(machine.readIpAsAddress()).toString();
 
             // Highlight ACC if changed
             if (currentAcc !== previousAcc && previousAcc !== '') {
@@ -442,8 +462,8 @@ HALT</textarea>
             accInput.value = currentAcc;
             // Update decoded ACC value
             try {
-                const accNum = encoding.fromWord(cpu.acc.read());
-                accDecoded.textContent = accNum.toJsNumber();
+                const accValue = machine.readNumberFromAcc();
+                accDecoded.textContent = accValue.toJsNumber();
             } catch {
                 accDecoded.textContent = '-';
             }
@@ -457,8 +477,8 @@ HALT</textarea>
             ipInput.value = currentIp;
             // Update decoded IP value
             try {
-                const ipNum = encoding.fromWord(cpu.ip.read());
-                ipDecoded.textContent = ipNum.toJsNumber();
+                const ipValue = machine.readIpAsAddress();
+                ipDecoded.textContent = ipValue.toJsNumber();
             } catch {
                 ipDecoded.textContent = '-';
             }
@@ -477,7 +497,7 @@ HALT</textarea>
             // First pass: detect all changes
             for (let i = 0; i < 1000; i++) { // Check all memory cells, not just visible
                 const addr = new RAM.NaturalNumber(i);
-                const word = memory.read(addr);
+                const word = machine.readWordFromMemoryAt(addr);
                 const currentValue = word.toString();
                 const previousValue = previousMemory.get(i);
                 
@@ -504,7 +524,7 @@ HALT</textarea>
                     for (let row = 0; row < CELLS_PER_COLUMN; row++) {
                         const cellIndex = (memoryOffset * CELLS_PER_COLUMN) + (col * CELLS_PER_COLUMN) + row;
                         const addr = new RAM.NaturalNumber(cellIndex);
-                        const word = memory.read(addr);
+                        const word = machine.readWordFromMemoryAt(addr);
                         const currentValue = word.toString();
 
                         const cellDiv = document.createElement('div');
@@ -522,15 +542,15 @@ HALT</textarea>
                             const addr = new RAM.NaturalNumber(parseInt(e.target.dataset.addr));
                             const value = e.target.value;
                             const symbols = value.split('').map(c => new RAM.Symbol(c));
-                            memory.write(addr, new RAM.Word(symbols));
+                            machine.writeWordToMemoryAt(addr, new RAM.Word(symbols));
                             updateUI();
                         });
 
                         const decodedDiv = document.createElement('div');
                         decodedDiv.className = 'decoded';
                         try {
-                            const num = encoding.fromWord(word);
-                            decodedDiv.textContent = word.length > 0 ? num.toJsNumber() : '';
+                            const decodedValue = encoding.fromWord(word);
+                            decodedDiv.textContent = word.length > 0 ? decodedValue.toJsNumber() : '';
                         } catch {
                             decodedDiv.textContent = '-';
                         }
@@ -548,7 +568,7 @@ HALT</textarea>
                     for (let row = 0; row < CELLS_PER_COLUMN; row++) {
                         const cellIndex = (memoryOffset * CELLS_PER_COLUMN) + (col * CELLS_PER_COLUMN) + row;
                         const addr = new RAM.NaturalNumber(cellIndex);
-                        const word = memory.read(addr);
+                        const word = machine.readWordFromMemoryAt(addr);
                         const currentValue = word.toString();
 
                         const cellSelector = `input[data-addr="${cellIndex}"]`;
@@ -560,8 +580,8 @@ HALT</textarea>
                             // Update decoded value
                             const decodedDiv = existingInput.parentElement.querySelector('.decoded');
                             try {
-                                const num = encoding.fromWord(word);
-                                decodedDiv.textContent = word.length > 0 ? num.toJsNumber() : '';
+                                const decodedValue = encoding.fromWord(word);
+                                decodedDiv.textContent = word.length > 0 ? decodedValue.toJsNumber() : '';
                             } catch {
                                 decodedDiv.textContent = '-';
                             }
@@ -744,8 +764,8 @@ HALT</textarea>
             machine.stop();
             startStopBtn.textContent = 'Start';
             stepBtn.disabled = false;
-            cpu.acc.write(new RAM.Word([]));
-            cpu.ip.write(encoding.toWord(RAM.NaturalNumber.ZERO));
+            machine.writeWordToAcc(new RAM.Word([]));
+            machine.writeAddressToIp(RAM.NaturalNumber.ZERO);
             ioOutputElement.textContent = '';
             ioInputElement.value = '';
             io.setInputEnabled(false);
@@ -776,21 +796,8 @@ HALT</textarea>
             updateUI();
         });
 
-        // Subscribe to machine events for automatic UI updates
-        machine.subscribe('UI', {
-            handle: (event) => {
-                console.log('Event received:', event.type, 'from', event.source);
-
-                if (event.type === 'Memory Cell Updated') {
-                    // Automatically update UI when memory cells change
-                    updateUI();
-                } else if (event.type === 'MachineStarted') {
-                    startStopBtn.textContent = 'Stop';
-                } else if (event.type === 'MachineStopped') {
-                    startStopBtn.textContent = 'Start';
-                }
-            }
-        });
+        // Register for machine events, so the UI updates automatically
+        machine.addListener(new UIListener());
 
         // Initial UI update
         resetMetrics();
