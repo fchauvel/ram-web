@@ -147,8 +147,9 @@ class Table {
   }
 
   #adjustColumnWidth(column: number, width: number, options: CellStyle) {
-    let columnInfo = this.columns[column];
-    if (options.align != CellAlign.None) {
+    const { affectsColumnWidth = true } = options;
+    if (affectsColumnWidth) {
+      const columnInfo = this.columns[column];
       columnInfo.maxWidth = Math.max(columnInfo.maxWidth, width);
     }
   }
@@ -197,6 +198,8 @@ type CellStyle = {
   align?: CellAlign;
   padding?: string;
   spanColumns?: number;
+  // False for comments, so a long comment never stretches a column's width.
+  affectsColumnWidth?: boolean;
 };
 
 class AstTableBuilder extends AstVisitor {
@@ -233,7 +236,6 @@ class AstTableBuilder extends AstVisitor {
 
   override visitDataDeclaration(node: DataDeclaration): void {
     this.#formatLeadingComments(node.span.start, 1);
-    this.tokens.advanceUntil(node.span.start);
     this.document.table.newRow();
     this.document.table.setCell(
       this.#printer.print(node.identifier),
@@ -244,9 +246,10 @@ class AstTableBuilder extends AstVisitor {
       this.document.table.pushCellAfter(
         this.#printer.print(value),
         2,
-        { align: CellAlign.Right }
+        { align: CellAlign.Left }
       );
     }
+    this.tokens.advanceUntil(node.span.end);
     this.#formatInlineComment(node.span.end, 1);
     this.#formatTrailingComments(1);
   }
@@ -267,7 +270,6 @@ class AstTableBuilder extends AstVisitor {
 
   override visitInstruction(node: Instruction): void {
     this.#formatLeadingComments(node.span.start, 2);
-    this.tokens.advanceUntil(node.span.start);
     if (node.label != undefined) {
       this.document.table.setCell(
         this.#printer.print(node.label),
@@ -284,14 +286,15 @@ class AstTableBuilder extends AstVisitor {
       const operandText = this.#printer.print(node.operand);
       this.document.table.pushCellAfter(operandText, 3, { align: CellAlign.Left });
     }
-    this.#formatInlineComment(node.span.end, 2);
+    this.tokens.advanceUntil(node.span.end);
+    // Column 4 so a comment lines up even on a row with no operand (column 3).
+    this.#formatInlineComment(node.span.end, 4);
     this.document.table.newRow();
     this.#formatTrailingComments(2);
   }
 
   override visitMacroCall(node: MacroCall): void {
     this.#formatLeadingComments(node.span.start, 2);
-    this.tokens.advanceUntil(node.span.start);
     if (node.label != undefined) {
       this.document.table.setCell(
         this.#printer.print(node.label),
@@ -308,7 +311,8 @@ class AstTableBuilder extends AstVisitor {
       const argText = this.#printer.print(arg);
       this.document.table.pushCellAfter(argText, 3, { align: CellAlign.Left });
     }
-    this.#formatInlineComment(node.span.end, 2);
+    this.tokens.advanceUntil(node.span.end);
+    this.#formatInlineComment(node.span.end, 4);
     this.document.table.newRow();
     this.#formatTrailingComments(2);
   }
@@ -337,7 +341,10 @@ class AstTableBuilder extends AstVisitor {
   #formatLeadingComments(position: TextPosition, column: number): void {
     const leading = this.tokens.takeLeadingComments(position);
     for (const comment of leading) {
-      this.document.table.pushCellAfter(comment.text, column, { align: CellAlign.None });
+      this.document.table.pushCellAfter(comment.text, column, {
+        align: CellAlign.None,
+        affectsColumnWidth: false,
+      });
       this.document.table.newRow();
     }
   }
@@ -345,14 +352,20 @@ class AstTableBuilder extends AstVisitor {
   #formatInlineComment(position: TextPosition, column: number): void {
     const inline = this.tokens.takeInlineComment(position);
     if (inline != undefined) {
-      this.document.table.pushCellAfter(inline.text, column, { align: CellAlign.None });
+      this.document.table.pushCellAfter(inline.text, column, {
+        align: CellAlign.None,
+        affectsColumnWidth: false,
+      });
     }
   }
 
   #formatTrailingComments(column: number): void {
     const comments = this.tokens.takeIfFollowedByBlankLine();
     for (const comment of comments) {
-      this.document.table.setCell(comment.text, column, { align: CellAlign.None });
+      this.document.table.setCell(comment.text, column, {
+        align: CellAlign.None,
+        affectsColumnWidth: false,
+      });
       this.document.table.newRow();
     }
   }
