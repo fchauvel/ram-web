@@ -310,7 +310,7 @@ HALT</textarea>
                 // Comments (must be first to avoid highlighting inside comments)
                 .replace(/(;.*$)/gm, '<span class="hl-comment">$1</span>')
                 // Directives (.data, .code)
-                .replace(/^(\.data|\.code)\b/gm, '<span class="hl-directive">$1</span>')
+                .replace(/^(\.data|\.code|\.macro|\.end)\b/gm, '<span class="hl-directive">$1</span>')
                 // Labels (word followed by colon) - capture whitespace too
                 .replace(/^(\s*\w+:)/gm, '<span class="hl-label">$1</span>')
                 // Instructions (at start of line or after whitespace)
