@@ -1,0 +1,39 @@
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+  create:
+    tags:
+      "*"
+
+jobs:
+  deploy:
+    name: Build, Test and Deploy
+    runs-on: ubuntu-22.04
+    steps:
+    - run: |
+        sudo apt-get install sshpass -y
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 'lts/*'
+    - name: Install Deps
+      run: |
+        npm ci
+    - name: Build and Test
+      run: |
+        npm test
+    - name: Prepare deployment
+      run: |
+        mkdir -p public/dist
+        cp index.html style.css public/
+        cp -r dist/src public/dist/
+        cp -r examples public/
+    - name: Deploy
+      env:
+         SCP_USERNAME: ${{ secrets.USERNAME }}
+         SCP_PASSWORD: ${{ secrets.PASSWORD }}
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        sshpass -p "$SCP_PASSWORD" rsync -e "ssh -o StrictHostKeyChecking=no" --delete -avz public/ "$SCP_USERNAME":public_html/idata2302/ram
