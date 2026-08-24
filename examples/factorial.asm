@@ -11,52 +11,60 @@
 
 .code
     ; Initialize counter = n
-    PROMPT n
-    LOAD n
+    READ n
+    LOAD 0
+    ADD n
     STORE counter
 
 loop:
     ; Check if counter is 0
-    LOAD counter
-    JUMPZ done
-    
+    LOAD 0
+    ADD counter
+    JUMP_ZERO done
+
     ; result = result * counter
     ; We'll do this by repeated addition
     ; temp = result, result = 0, then add temp to result counter times
-    
-    LOAD result
+
+    LOAD 0
+    ADD result
     STORE temp      ; Save current result
-    SET 0
+    LOAD 0
     STORE result    ; Reset result to 0
-    
-    LOAD counter
+
+    LOAD 0
+    ADD counter
     STORE multiply_counter
-    
+
 multiply_loop:
-    LOAD multiply_counter
-    JUMPZ multiply_done
-    
+    LOAD 0
+    ADD multiply_counter
+    JUMP_ZERO multiply_done
+
     ; result += temp
-    LOAD result
+    LOAD 0
+    ADD result
     ADD temp
     STORE result
-    
+
     ; multiply_counter--
-    LOAD multiply_counter  
+    LOAD 0
+    ADD multiply_counter
     SUBTRACT one
     STORE multiply_counter
-    
-    SET 0
-    JUMPZ multiply_loop
-    
+
+    LOAD 0
+    JUMP_ZERO multiply_loop
+
 multiply_done:
     ; counter--
-    LOAD counter
+    LOAD 0
+    ADD counter
     SUBTRACT one
     STORE counter
-    
-    SET 0
-    JUMPZ loop
+
+    LOAD 0
+    JUMP_ZERO loop
 
 done:
     PRINT result

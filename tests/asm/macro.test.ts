@@ -14,7 +14,8 @@ describe("Macro expansion", () => {
         x    5
 
       .macro INCR var
-        LOAD  {var}
+        LOAD  0
+        ADD   {var}
         ADD   one
         STORE {var}
       .end
@@ -29,7 +30,7 @@ describe("Macro expansion", () => {
     driver.verify({
       running: false,
       acc: 6,
-      ip: 27, // HALT is at 26 (3 expanded instructions x 2 words), IP advances to 27
+      ip: 29, // HALT is at 28 (4 expanded instructions x 2 words), IP advances to 29
       memory: [
         { address: 0, value: 1 }, // one
         { address: 1, value: 6 }, // x, incremented once
@@ -44,7 +45,8 @@ describe("Macro expansion", () => {
         x    5
 
       .macro INCR var
-        LOAD  {var}
+        LOAD  0
+        ADD   {var}
         ADD   one
         STORE {var}
       .end
@@ -60,7 +62,7 @@ describe("Macro expansion", () => {
     driver.verify({
       running: false,
       acc: 7,
-      ip: 33, // HALT is at 32 (6 expanded instructions x 2 words), IP advances to 33
+      ip: 37, // HALT is at 36 (8 expanded instructions x 2 words), IP advances to 37
       memory: [
         { address: 0, value: 1 }, // one
         { address: 1, value: 7 }, // x, incremented twice
@@ -79,13 +81,14 @@ describe("Macro expansion", () => {
         b    1
 
       .macro DECRTOZERO var
-        loop: LOAD      {var}
-              SUBTRACT  one
-              STORE     {var}
-              JUMPZ     done
-              SET       0
-              JUMPZ     loop
-        done: SET       0
+        loop: LOAD       0
+              ADD         {var}
+              SUBTRACT    one
+              STORE       {var}
+              JUMP_ZERO   done
+              LOAD        0
+              JUMP_ZERO   loop
+        done: LOAD        0
       .end
 
       .code
@@ -99,7 +102,7 @@ describe("Macro expansion", () => {
     driver.verify({
       running: false,
       acc: 0,
-      ip: 49, // HALT is at 48 (14 expanded instructions x 2 words, 7 per call), IP advances to 49
+      ip: 53, // HALT is at 52 (16 expanded instructions x 2 words, 8 per call), IP advances to 53
       memory: [
         { address: 0, value: 1 }, // one
         { address: 1, value: 0 }, // a, decremented to 0

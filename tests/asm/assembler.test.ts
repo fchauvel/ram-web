@@ -9,7 +9,7 @@ describe("Assembler end-to-end", () => {
       .data
         val3  3
       .code
-        SET 5
+        LOAD 5
         ADD val3
         STORE 10
         HALT
@@ -36,7 +36,7 @@ describe("Assembler end-to-end", () => {
         val3  3 ; inline comment after a declaration
       .code
         ; a comment on its own line
-        SET 5
+        LOAD 5
         ADD val3
         STORE 10
         HALT
@@ -64,7 +64,8 @@ describe("Assembler end-to-end", () => {
         result  0
 
       .code
-        LOAD    value
+        LOAD    0
+        ADD     value
         ADD     addend
         STORE   result
         HALT
@@ -75,7 +76,7 @@ describe("Assembler end-to-end", () => {
     driver.verify({
       running: false,
       acc: 15,
-      ip: 27, // HALT is at 26, IP advances to 27
+      ip: 29, // HALT is at 28, IP advances to 29
       memory: [
         { address: 0, value: 5 }, // value
         { address: 1, value: 10 }, // addend
@@ -92,12 +93,13 @@ describe("Assembler end-to-end", () => {
         one     1
 
       .code
-        loop: LOAD  counter
+        loop: LOAD  0
+              ADD   counter
               SUBTRACT   one
               STORE counter
-              JUMPZ done
-              SET   0
-              JUMPZ  loop
+              JUMP_ZERO done
+              LOAD   0
+              JUMP_ZERO  loop
         done: HALT
     `;
 
@@ -106,7 +108,7 @@ describe("Assembler end-to-end", () => {
     driver.verify({
       running: false,
       acc: 0,
-      ip: 33, // HALT is at 32, IP advances to 33
+      ip: 35, // HALT is at 34, IP advances to 35
       memory: [
         { address: 0, value: 0 }, // counter
         { address: 1, value: 1 }, // one
@@ -114,7 +116,7 @@ describe("Assembler end-to-end", () => {
     });
   });
 
-  test("program with PROMPT and PRINT", () => {
+  test("program with READ and PRINT", () => {
     const source = `
       .data
         input1  0
@@ -122,9 +124,10 @@ describe("Assembler end-to-end", () => {
         sum     0
 
       .code
-        PROMPT  input1
-        PROMPT  input2
-        LOAD    input1
+        READ    input1
+        READ    input2
+        LOAD    0
+        ADD     input1
         ADD     input2
         STORE   sum
         PRINT   sum
@@ -136,7 +139,7 @@ describe("Assembler end-to-end", () => {
     driver.verify({
       running: false,
       acc: 10,
-      ip: 33, // HALT is at 32, IP advances to 33
+      ip: 35, // HALT is at 34, IP advances to 35
       memory: [
         { address: 0, value: 7 }, // input1
         { address: 1, value: 3 }, // input2

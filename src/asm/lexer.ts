@@ -3,7 +3,7 @@ import { AstVisitor, DataSegment, DataDeclaration, Program } from "./ast.js";
 export class TokenKind {
   static readonly Mnemonic = new TokenKind(
     "Mnemonic",
-    /^(ADD|SUBTRACT|JUMPZ|SET|PROMPT|PRINT|LOAD|STORE|HALT)\b/
+    /^(ADD|SUBTRACT|JUMP_ZERO|LOAD|READ|PRINT|STORE|HALT)\b/
   );
   static readonly CodeSegment = new TokenKind("CodeSegment", /^\.code/);
   static readonly DataSegment = new TokenKind("DataSegment", /^\.data/);

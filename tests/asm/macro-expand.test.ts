@@ -18,7 +18,8 @@ describe("expand", () => {
     const macro = declareMacro(
       `
       .macro INCR var
-        LOAD  {var}
+        LOAD  0
+        ADD   {var}
         ADD   one
         STORE {var}
       .end
@@ -28,20 +29,22 @@ describe("expand", () => {
 
     const instructions = expand(macro, [new Identifier("x")]);
 
-    assert.strictEqual(instructions.length, 3);
+    assert.strictEqual(instructions.length, 4);
     assert.strictEqual(instructions[0].mnemonic.name, "LOAD");
-    assert.strictEqual((instructions[0].operand as Identifier).name, "x");
     assert.strictEqual(instructions[1].mnemonic.name, "ADD");
-    assert.strictEqual((instructions[1].operand as Identifier).name, "one");
-    assert.strictEqual(instructions[2].mnemonic.name, "STORE");
-    assert.strictEqual((instructions[2].operand as Identifier).name, "x");
+    assert.strictEqual((instructions[1].operand as Identifier).name, "x");
+    assert.strictEqual(instructions[2].mnemonic.name, "ADD");
+    assert.strictEqual((instructions[2].operand as Identifier).name, "one");
+    assert.strictEqual(instructions[3].mnemonic.name, "STORE");
+    assert.strictEqual((instructions[3].operand as Identifier).name, "x");
   });
 
   test("substitutes each parameter with its own argument", () => {
     const macro = declareMacro(
       `
       .macro COPY source target
-        LOAD  {source}
+        LOAD  0
+        ADD   {source}
         STORE {target}
       .end
     `,
@@ -50,15 +53,15 @@ describe("expand", () => {
 
     const instructions = expand(macro, [new Identifier("a"), new Identifier("b")]);
 
-    assert.strictEqual((instructions[0].operand as Identifier).name, "a");
-    assert.strictEqual((instructions[1].operand as Identifier).name, "b");
+    assert.strictEqual((instructions[1].operand as Identifier).name, "a");
+    assert.strictEqual((instructions[2].operand as Identifier).name, "b");
   });
 
   test("leaves instructions without a macro parameter unchanged", () => {
     const macro = declareMacro(
       `
       .macro RESET
-        SET   0
+        LOAD  0
         STORE result
       .end
     `,
@@ -75,7 +78,8 @@ describe("expand", () => {
     const macro = declareMacro(
       `
       .macro INCR var
-        LOAD  {var}
+        LOAD  0
+        ADD   {var}
         ADD   one
         STORE {var}
       .end

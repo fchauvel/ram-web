@@ -1,5 +1,5 @@
 ; Basic Arithmetic Example
-; Demonstrates: SET, ADD, STORE, PRINT
+; Demonstrates: LOAD, ADD, STORE, PRINT
 
 .data
     value  5
@@ -7,7 +7,7 @@
     result 0
 
 .code
-    SET   3
+    LOAD  3
     ADD   value
     STORE result
     PRINT result

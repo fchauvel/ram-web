@@ -183,21 +183,6 @@ class Load extends AbstractInstruction {
   }
 
   execute(machine: Machine): NaturalNumber[] {
-    const [opCode, address] = machine.readNextInstruction(this.length);
-    this.ensureOpCodeMatches(opCode);
-    const value = machine.readWordFromMemoryAt(address);
-    machine.writeWordToAcc(value);
-    machine.incrementIpBy(this.length);
-    return [opCode, address];
-  }
-}
-
-class Set extends AbstractInstruction {
-  constructor(mnemonic: string, opCode: number) {
-    super(mnemonic, opCode);
-  }
-
-  execute(machine: Machine): NaturalNumber[] {
     const [opCode, value] = machine.readNextInstruction(this.length);
     this.ensureOpCodeMatches(opCode);
     machine.writeNumberToAcc(value);
@@ -206,7 +191,7 @@ class Set extends AbstractInstruction {
   }
 }
 
-class Prompt extends AbstractInstruction {
+class Read extends AbstractInstruction {
   constructor(mnemonic: string, opCode: number) {
     super(mnemonic, opCode);
   }
@@ -257,11 +242,10 @@ export class InstructionSet {
     [
       new Add("ADD", 1),
       new Subtract("SUBTRACT", 2),
-      new JumpIfZero("JUMPZ", 3),
+      new JumpIfZero("JUMP_ZERO", 3),
       new Store("STORE", 4),
-      new Load("LOAD", 5),
-      new Set("SET", 6),
-      new Prompt("PROMPT", 7),
+      new Load("LOAD", 6),
+      new Read("READ", 7),
       new Print("PRINT", 8),
     ],
     new Halt("HALT", 0, 1)

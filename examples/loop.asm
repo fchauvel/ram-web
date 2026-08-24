@@ -1,16 +1,17 @@
 ; Loop Example
-; Demonstrates: labels, JUMPZ, loops
+; Demonstrates: labels, JUMP_ZERO, loops
 
 .data
       counter 5
       one     1
 
 .code
-      loop: LOAD  counter
+      loop: LOAD  0
+            ADD   counter
             PRINT counter
             SUBTRACT one
             STORE counter
-            JUMPZ done
-            SET   0
-            JUMPZ loop
+            JUMP_ZERO done
+            LOAD   0
+            JUMP_ZERO loop
       done: HALT

@@ -7,7 +7,8 @@
   b       10
 
 .macro INCR var
-  LOAD  {var}
+  LOAD  0
+  ADD   {var}
   ADD   one
   STORE {var}
 .end

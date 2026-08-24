@@ -39,7 +39,7 @@ value  5
 result 0
 
 .code
-SET   3
+LOAD  3
 ADD   value
 STORE result
 PRINT result
@@ -314,7 +314,7 @@ HALT</textarea>
                 // Labels (word followed by colon) - capture whitespace too
                 .replace(/^(\s*\w+:)/gm, '<span class="hl-label">$1</span>')
                 // Instructions (at start of line or after whitespace)
-                .replace(/\b(SET|ADD|SUBTRACT|SUB|LOAD|STORE|JUMPZ|JUMP|PRINT|READ|ASK|SHOW|PROMPT|INPUT|HALT)\b/g,
+                .replace(/\b(LOAD|ADD|SUBTRACT|STORE|JUMP_ZERO|PRINT|READ|HALT)\b/g,
                          '<span class="hl-instruction">$1</span>')
                 // Numbers
                 .replace(/\b(\d+)\b/g, '<span class="hl-number">$1</span>');
