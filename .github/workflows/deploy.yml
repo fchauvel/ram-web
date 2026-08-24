@@ -32,8 +32,8 @@ jobs:
         cp -r examples public/
     - name: Deploy
       env:
-         SCP_USERNAME: ${{ secrets.USERNAME }}
-         SCP_PASSWORD: ${{ secrets.PASSWORD }}
+         SCP_USERNAME: ${{ secrets.SCP_USERNAME }}
+         SCP_PASSWORD: ${{ secrets.SCP_PASSWORD }}
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
         sshpass -p "$SCP_PASSWORD" rsync -e "ssh -o StrictHostKeyChecking=no" --delete -avz public/ "$SCP_USERNAME":public_html/idata2302/ram
