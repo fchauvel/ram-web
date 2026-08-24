@@ -16,7 +16,7 @@ ram/
 ├── examples/               # Example assembly programs
 │   ├── arithmetic.asm      # Basic arithmetic demo
 │   ├── hello.asm           # Character output demo
-│   ├── loop.asm            # Loop with JUMPZ demo
+│   ├── loop.asm            # Loop with JUMP_ZERO demo
 │   └── factorial.asm       # Complex control flow demo
 ├── README.md               # Technical documentation
 ├── GUIDE.md                # User guide
@@ -104,25 +104,24 @@ Address 0-19:      Data segment (variables declared in .data)
 Address 20+:       Code segment (instructions in .code)
 ```
 
-Each instruction occupies 2 words:
+Most instructions occupy 2 words:
 - Word 0: Opcode (0-8)
 - Word 1: Operand (immediate value or address)
 
-Exception: HALT has a dummy operand (0) to maintain 2-word consistency.
+Exception: HALT is a single word, with no operand.
 
 ## Instruction Encoding
 
 | Opcode | Instruction | Size | Property Name |
 |--------|-------------|------|---------------|
-| 6 | SET | 2 | `value` |
+| 6 | LOAD | 2 | `value` |
 | 1 | ADD | 2 | `operand` |
 | 2 | SUBTRACT | 2 | `operand` |
-| 5 | LOAD | 2 | `address` |
 | 4 | STORE | 2 | `address` |
-| 3 | JUMPZ | 2 | `target` |
+| 3 | JUMP_ZERO | 2 | `target` |
 | 8 | PRINT | 2 | `address` |
 | 7 | READ | 2 | `address` |
-| 0 | HALT | 2 | (dummy operand) |
+| 0 | HALT | 1 | (no operand) |
 
 ## Testing
 

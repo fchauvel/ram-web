@@ -45,7 +45,7 @@ ram/
 
 ## Features
 
-- RAM machine with indirect addressing for all instructions except SET
+- RAM machine with direct addressing for all instructions except LOAD
 - Complete assembler with lexer and parser
 - Web-based UI for interactive program execution
 - Data segment (addresses 0-19) and code segment (addresses 20+)
@@ -61,14 +61,13 @@ See `docs/` directory for detailed documentation:
 
 ## RAM Machine Instructions
 
-All instructions use indirect addressing (read from memory addresses) except SET which uses immediate values:
+All instructions address memory directly except LOAD, which takes an immediate constant. There is no instruction to load a value from an address into the accumulator directly; use `LOAD 0` followed by `ADD addr` instead.
 
-- `SET n` - Load immediate value n into accumulator
+- `LOAD c` - Load immediate constant c into accumulator
 - `ADD addr` - Add value at memory[addr] to accumulator
 - `SUBTRACT addr` - Subtract value at memory[addr] from accumulator
-- `LOAD addr` - Load value from memory[addr] into accumulator
 - `STORE addr` - Store accumulator value to memory[addr]
-- `JUMPZ addr` - Jump to addr if accumulator is zero
+- `JUMP_ZERO addr` - Jump to addr if accumulator is zero
 - `PRINT addr` - Print value at memory[addr]
-- `PROMPT addr` - Read input into memory[addr]
+- `READ addr` - Read input into memory[addr]
 - `HALT` - Stop execution

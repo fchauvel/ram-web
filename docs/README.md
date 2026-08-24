@@ -68,19 +68,21 @@ All classes are in the `RAM` namespace:
 
 ## Instruction Set
 
-All instructions are 2 words (opcode + operand):
+All instructions are 2 words (opcode + operand), except HALT:
 
 | Opcode | Instruction | Description |
 |--------|-------------|-------------|
-| 1 | ADD V | acc := acc + V |
-| 2 | SUB V | acc := acc - V |
-| 3 | JUMPZ A | if acc = 0 then ip := A |
+| 1 | ADD A | acc := acc + memory[A] |
+| 2 | SUBTRACT A | acc := acc - memory[A] |
+| 3 | JUMP_ZERO A | if acc = 0 then ip := A |
 | 4 | STORE A | memory[A] := acc |
-| 5 | LOAD A | acc := memory[A] |
-| 6 | SET V | acc := V |
+| 6 | LOAD c | acc := c |
 | 7 | READ A | memory[A] := input |
 | 8 | PRINT A | output := memory[A] |
 | 0 | HALT | stop execution |
+
+There is no instruction to load a value from an address into the
+accumulator directly; use `LOAD 0` followed by `ADD A` instead.
 
 ## Assembly Language
 
@@ -93,7 +95,7 @@ value  5
 result 0
 
 .code
-SET   3
+LOAD  3
 ADD   value
 STORE result
 PRINT result
@@ -110,11 +112,13 @@ HALT
 Labels can be used for jump targets:
 
 ```assembly
-loop: LOAD counter
+loop: LOAD  0
+      ADD   counter
       SUBTRACT one
-      JUMPZ done
-      SET 0
-      JUMPZ loop
+      STORE counter
+      JUMP_ZERO done
+      LOAD  0
+      JUMP_ZERO loop
 done: HALT
 ```
 

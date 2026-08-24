@@ -38,7 +38,7 @@ counter 5
 one     1
 
 .code
-SET   10
+LOAD  10
 ADD   counter
 STORE counter
 PRINT counter
@@ -80,19 +80,22 @@ Watch the machine state:
 
 | Instruction | Description | Example |
 |-------------|-------------|---------|
-| `SET V` | ACC := V | `SET 5` |
-| `ADD V` | ACC := ACC + V | `ADD counter` |
-| `SUBTRACT V` | ACC := ACC - V | `SUBTRACT one` |
-| `LOAD A` | ACC := memory[A] | `LOAD value` |
+| `LOAD c` | ACC := c | `LOAD 5` |
+| `ADD A` | ACC := ACC + memory[A] | `ADD counter` |
+| `SUBTRACT A` | ACC := ACC - memory[A] | `SUBTRACT one` |
 | `STORE A` | memory[A] := ACC | `STORE result` |
-| `JUMPZ A` | if ACC = 0 then IP := A | `JUMPZ done` |
+| `JUMP_ZERO A` | if ACC = 0 then IP := A | `JUMP_ZERO done` |
 | `PRINT A` | output := memory[A] | `PRINT result` |
+| `READ A` | memory[A] := input | `READ value` |
 | `HALT` | stop execution | `HALT` |
 
-**Note**: Operands can be:
-- Numbers: `SET 5`, `ADD 10`
-- Variables: `LOAD counter`, `STORE result`
-- Labels: `JUMPZ loop`, `JUMPZ done`
+**Note**: `LOAD` always takes a constant, every other instruction (besides
+`HALT`) takes an address. There is no instruction to load a value from an
+address into the accumulator directly - use `LOAD 0` followed by `ADD A`.
+
+- Constants: `LOAD 5`, `LOAD 0`
+- Addresses: `ADD counter`, `STORE result`
+- Labels: `JUMP_ZERO loop`, `JUMP_ZERO done`
 
 ## Labels
 
@@ -100,12 +103,13 @@ Use labels for jump targets:
 
 ```assembly
 .code
-loop: LOAD counter
+loop: LOAD  0
+      ADD   counter
       SUBTRACT one
       STORE counter
-      JUMPZ done
-      SET 0
-      JUMPZ loop
+      JUMP_ZERO done
+      LOAD  0
+      JUMP_ZERO loop
 done: HALT
 ```
 
@@ -138,7 +142,7 @@ Each instruction occupies 2 memory words (opcode + operand).
 
 **Program doesn't halt**
 - Make sure you have a `HALT` instruction
-- Check your loop conditions (JUMPZ)
+- Check your loop conditions (JUMP_ZERO)
 - Use Step mode to debug
 
 ## Example Programs
