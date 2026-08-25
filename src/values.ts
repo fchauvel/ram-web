@@ -81,12 +81,12 @@ export class NumberEncoding {
     if (str.length === 0) {
       return NaturalNumber.ZERO;
     }
-    const num = parseInt(str, 16);
+    const num = parseInt(str, 10);
     return new NaturalNumber(num);
   }
 
   toWord(number: NaturalNumber): Word {
-    const str = number.toJsNumber().toString(16).toUpperCase();
+    const str = number.toJsNumber().toString(10);
     const symbols = str.split("").map((char) => new Symbol(char));
     return new Word(symbols);
   }
